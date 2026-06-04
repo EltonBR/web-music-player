@@ -1,7 +1,8 @@
 const template = document.createElement("template");
+const stylesheetUrl = new URL("./player-settings.css", import.meta.url).href;
 
 template.innerHTML = `
-  <link rel="stylesheet" href="/js/components/player-settings/player-settings.css">
+  <link rel="stylesheet" href="${stylesheetUrl}">
   <aside class="settings" data-panel data-open="false" aria-label="Configuracoes">
     <div class="panel-head">
       <strong>Configuracoes</strong>

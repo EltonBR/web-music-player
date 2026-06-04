@@ -1,20 +1,20 @@
 const CACHE_VERSION = "web-music-player-v1";
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/manifest.webmanifest",
-  "/assets/album-placeholder.svg",
-  "/assets/app-icon.svg",
-  "/js/pwa.js",
-  "/js/components/music-player/music-player.js",
-  "/js/components/music-player/music-player.css",
-  "/js/components/music-library/music-library.js",
-  "/js/components/music-library/music-library.css",
-  "/js/components/current-playlist/current-playlist.js",
-  "/js/components/current-playlist/current-playlist.css",
-  "/js/components/player-settings/player-settings.js",
-  "/js/components/player-settings/player-settings.css"
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./manifest.webmanifest",
+  "./assets/album-placeholder.svg",
+  "./assets/app-icon.svg",
+  "./js/pwa.js",
+  "./js/components/music-player/music-player.js",
+  "./js/components/music-player/music-player.css",
+  "./js/components/music-library/music-library.js",
+  "./js/components/music-library/music-library.css",
+  "./js/components/current-playlist/current-playlist.js",
+  "./js/components/current-playlist/current-playlist.css",
+  "./js/components/player-settings/player-settings.js",
+  "./js/components/player-settings/player-settings.css"
 ];
 
 self.addEventListener("install", (event) => {
@@ -39,12 +39,13 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  const scopedPath = getScopedPath(url);
 
   if (url.origin !== self.location.origin) {
     return;
   }
 
-  if (url.pathname.startsWith("/api/tracks/") || url.pathname === "/api/player-state") {
+  if (scopedPath.startsWith("/api/tracks/") || scopedPath === "/api/player-state") {
     return;
   }
 
@@ -53,11 +54,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (event.request.mode === "navigate") {
-    event.respondWith(networkFirst(event.request, "/index.html"));
+    event.respondWith(networkFirst(event.request, "./index.html"));
     return;
   }
 
-  if (url.pathname === "/api/tracks" || url.pathname === "/api/health") {
+  if (scopedPath === "/api/tracks" || scopedPath === "/api/health") {
     event.respondWith(networkFirst(event.request));
     return;
   }
@@ -79,6 +80,14 @@ async function cacheFirst(request) {
     cache.put(request, networkResponse.clone());
   }
   return networkResponse;
+}
+
+function getScopedPath(url) {
+  const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+  if (!scopePath || !url.pathname.startsWith(scopePath)) {
+    return url.pathname;
+  }
+  return url.pathname.slice(scopePath.length) || "/";
 }
 
 async function networkFirst(request, fallbackUrl) {

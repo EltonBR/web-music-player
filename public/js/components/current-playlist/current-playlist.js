@@ -1,7 +1,8 @@
 const template = document.createElement("template");
+const stylesheetUrl = new URL("./current-playlist.css", import.meta.url).href;
 
 template.innerHTML = `
-  <link rel="stylesheet" href="/js/components/current-playlist/current-playlist.css">
+  <link rel="stylesheet" href="${stylesheetUrl}">
   <aside class="queue" data-panel data-open="false" aria-label="Lista de reproducao atual">
     <div class="list-head">
       <strong>Lista atual</strong>

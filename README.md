@@ -81,6 +81,8 @@ O projeto inclui os arquivos basicos de PWA:
 
 O Service Worker cacheia os arquivos estaticos do frontend. Requisicoes de streaming em `/api/tracks/:path`, requisicoes com header `Range` e estado remoto em `/api/player-state` passam direto pela rede para evitar problemas com reproducao, seek e sincronizacao.
 
+Os caminhos do frontend sao relativos ao local onde `index.html` foi publicado. Isso permite servir o app em um subdiretorio, por exemplo `https://servidor/player/`, sem quebrar CSS, modulos JavaScript, manifest, icones ou Service Worker.
+
 ## Portas
 
 - Frontend: `http://localhost:1024`

@@ -3,6 +3,8 @@ import "../current-playlist/current-playlist.js";
 import "../player-settings/player-settings.js";
 
 const DEFAULT_API_BASE_URL = window.MUSIC_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:9192`;
+const stylesheetUrl = new URL("./music-player.css", import.meta.url).href;
+const albumPlaceholderUrl = new URL("../../../assets/album-placeholder.svg", import.meta.url).href;
 const STORAGE_KEYS = {
   library: "webMusicPlayer.library",
   playlist: "webMusicPlayer.currentPlaylist",
@@ -13,7 +15,7 @@ const STORAGE_KEYS = {
 const template = document.createElement("template");
 
 template.innerHTML = `
-  <link rel="stylesheet" href="/js/components/music-player/music-player.css">
+  <link rel="stylesheet" href="${stylesheetUrl}">
   <section class="player" aria-label="Player de musica">
     <header class="player-header">
       <button class="menu-button" data-library-button type="button" aria-label="Abrir biblioteca" title="Abrir biblioteca">
@@ -32,7 +34,7 @@ template.innerHTML = `
     </header>
 
     <article class="surface">
-      <img class="cover" src="/assets/album-placeholder.svg" alt="Capa do album">
+      <img class="cover" src="${albumPlaceholderUrl}" alt="Capa do album">
 
       <div class="meta">
         <p class="eyebrow">Tocando agora</p>

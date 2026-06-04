@@ -3,8 +3,8 @@
   "short_name": "Music Player",
   "description": "Player de musica local com biblioteca em arvore, fila de reproducao e sincronizacao opcional.",
   "lang": "pt-BR",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f7f8f4",
@@ -12,7 +12,7 @@
   "categories": ["music", "entertainment"],
   "icons": [
     {
-      "src": "/assets/app-icon.svg",
+      "src": "assets/app-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
