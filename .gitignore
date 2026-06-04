@@ -6,3 +6,4 @@ music/
 .frontend-server.log
 .frontend-server.pid
 .player-state.json
+.cache/

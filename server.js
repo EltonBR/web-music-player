@@ -1,13 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
+const crypto = require("crypto");
 const { URL } = require("url");
 
 const PORT = Number(process.env.PORT || 9192);
 const PUBLIC_DIR = path.join(__dirname, "public");
 const MUSIC_DIR = path.resolve(process.env.MUSIC_DIR || path.join(__dirname, "music"));
 const PLAYER_STATE_FILE = path.join(__dirname, ".player-state.json");
+const CACHE_DIR = path.join(__dirname, ".cache");
 const MAX_ID3_TAG_SIZE = 32 * 1024 * 1024;
+const METADATA_CACHE_VERSION = 1;
 
 const AUDIO_TYPES = new Map([
   [".mp3", "audio/mpeg"],
@@ -349,6 +352,90 @@ async function readAudioMetadata(filePath, relativePath) {
   }
 }
 
+function getMetadataCachePath(filePath) {
+  const cacheKey = crypto.createHash("sha1").update(path.resolve(filePath)).digest("hex");
+  return path.join(CACHE_DIR, `${cacheKey}.json`);
+}
+
+function getFileSignature(stat) {
+  return {
+    size: stat.size,
+    mtimeMs: stat.mtimeMs
+  };
+}
+
+function isMetadataCacheValid(cacheItem, filePath, relativePath, stat) {
+  return cacheItem
+    && cacheItem.version === METADATA_CACHE_VERSION
+    && cacheItem.filePath === path.resolve(filePath)
+    && cacheItem.relativePath === relativePath
+    && cacheItem.size === stat.size
+    && cacheItem.mtimeMs === stat.mtimeMs
+    && cacheItem.metadata
+    && typeof cacheItem.metadata === "object";
+}
+
+async function readMetadataCache(cachePath, filePath, relativePath, stat) {
+  try {
+    const rawCache = await fs.promises.readFile(cachePath, "utf8");
+    const cacheItem = JSON.parse(rawCache);
+    if (isMetadataCacheValid(cacheItem, filePath, relativePath, stat)) {
+      return cacheItem.metadata;
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function writeMetadataCache(cachePath, filePath, relativePath, stat, metadata) {
+  await fs.promises.mkdir(CACHE_DIR, { recursive: true });
+  const signature = getFileSignature(stat);
+  const cacheItem = {
+    version: METADATA_CACHE_VERSION,
+    filePath: path.resolve(filePath),
+    relativePath,
+    cachedAt: new Date().toISOString(),
+    ...signature,
+    metadata
+  };
+  const tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
+
+  try {
+    await fs.promises.writeFile(tempPath, JSON.stringify(cacheItem, null, 2));
+    await fs.promises.rename(tempPath, cachePath);
+  } catch (error) {
+    try {
+      await fs.promises.unlink(tempPath);
+    } catch (unlinkError) {
+      if (unlinkError.code !== "ENOENT") {
+        throw unlinkError;
+      }
+    }
+    throw error;
+  }
+}
+
+async function readAudioMetadataCached(filePath, relativePath, stat) {
+  const cachePath = getMetadataCachePath(filePath);
+  const cachedMetadata = await readMetadataCache(cachePath, filePath, relativePath, stat);
+  if (cachedMetadata) {
+    return cachedMetadata;
+  }
+
+  const metadata = await readAudioMetadata(filePath, relativePath);
+  try {
+    await writeMetadataCache(cachePath, filePath, relativePath, stat, metadata);
+  } catch (error) {
+    console.warn(`Could not write metadata cache for ${relativePath}: ${error.message}`);
+  }
+
+  return metadata;
+}
+
 async function walkAudioFiles(dir, root = dir, visitedDirectories = new Set()) {
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   const tracks = [];
@@ -386,9 +473,10 @@ async function walkAudioFiles(dir, root = dir, visitedDirectories = new Set()) {
     }
 
     const relativePath = path.relative(root, fullPath).split(path.sep).join("/");
+    const fileStat = stat || await fs.promises.stat(fullPath);
     const parsedName = path.basename(entry.name, ext);
     const fallbackArtist = path.dirname(relativePath) === "." ? "Biblioteca local" : path.dirname(relativePath);
-    const metadata = await readAudioMetadata(fullPath, relativePath);
+    const metadata = await readAudioMetadataCached(fullPath, relativePath, fileStat);
 
     tracks.push({
       id: Buffer.from(relativePath).toString("base64url"),
@@ -414,6 +502,7 @@ async function walkAudioFiles(dir, root = dir, visitedDirectories = new Set()) {
 async function handleTracksList(res) {
   try {
     await fs.promises.mkdir(MUSIC_DIR, { recursive: true });
+    await fs.promises.mkdir(CACHE_DIR, { recursive: true });
     const tracks = await walkAudioFiles(MUSIC_DIR);
     sendJson(res, 200, { musicDir: MUSIC_DIR, tracks });
   } catch (error) {
@@ -558,6 +647,13 @@ async function handleTrackDelete(res, pathname) {
     }
 
     await fs.promises.unlink(filePath);
+    try {
+      await fs.promises.unlink(getMetadataCachePath(filePath));
+    } catch (cacheError) {
+      if (cacheError.code !== "ENOENT") {
+        console.warn(`Could not remove metadata cache for ${relativePath}: ${cacheError.message}`);
+      }
+    }
     sendJson(res, 200, { ok: true, path: relativePath });
   } catch (error) {
     if (error.code === "ENOENT") {
