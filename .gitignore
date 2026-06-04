@@ -1,0 +1,8 @@
+busybox-*/
+busybox-*.tar.*
+music/
+.api-server.log
+.api-server.pid
+.frontend-server.log
+.frontend-server.pid
+.player-state.json

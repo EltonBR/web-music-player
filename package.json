@@ -1,0 +1,13 @@
+{
+  "name": "web-music-player",
+  "version": "1.0.0",
+  "description": "Mobile-first music player with vanilla JS web components and a Node REST API.",
+  "main": "server.js",
+  "scripts": {
+    "api": "node server.js",
+    "frontend": "sh ./serve-frontend.sh",
+    "start": "sh ./start-server.sh",
+    "stop": "sh ./stop-server.sh"
+  },
+  "private": true
+}
