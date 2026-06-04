@@ -12,6 +12,8 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 - Selecao de uma faixa individual.
 - Lista de reproducao atual em painel separado.
 - Tema claro e escuro.
+- Instalavel como PWA.
+- Cache offline do app shell por Service Worker.
 - Configuracoes para mudar a URL da API.
 - Persistencia local de biblioteca, fila atual, faixa atual e tempo.
 - Opcao de sincronizar estado no servidor para continuar ouvindo em outro dispositivo.
@@ -25,6 +27,8 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 |-- server.js
 |-- public/
 |   |-- index.html
+|   |-- manifest.webmanifest
+|   |-- service-worker.js
 |   |-- styles.css
 |   |-- assets/
 |   `-- js/components/
@@ -65,6 +69,17 @@ Cada componente tem CSS proprio no mesmo diretorio:
 public/js/components/<nome-componente>/<nome-componente>.js
 public/js/components/<nome-componente>/<nome-componente>.css
 ```
+
+### PWA
+
+O projeto inclui os arquivos basicos de PWA:
+
+- `public/manifest.webmanifest`: nome, icone, tema, escopo e modo `standalone`.
+- `public/service-worker.js`: cache do app shell e limpeza de caches antigos.
+- `public/js/pwa.js`: registro do Service Worker no carregamento da pagina.
+- `public/assets/app-icon.svg`: icone usado pelo manifest.
+
+O Service Worker cacheia os arquivos estaticos do frontend. Requisicoes de streaming em `/api/tracks/:path`, requisicoes com header `Range` e estado remoto em `/api/player-state` passam direto pela rede para evitar problemas com reproducao, seek e sincronizacao.
 
 ## Portas
 
@@ -117,6 +132,10 @@ Depois abra no celular:
 ```text
 http://<ip-da-maquina>:1024
 ```
+
+No navegador mobile, use a opcao de instalar/adicionar a tela inicial. Depois de instalado, o app abre em modo standalone.
+
+Observacao tecnica: Service Worker exige contexto seguro. Em `localhost`, HTTP e aceito pelos navegadores. Em outro dispositivo da rede, como um celular acessando `http://<ip-da-maquina>:1024`, o navegador pode bloquear o registro do Service Worker e a instalacao PWA ate que o frontend seja servido por HTTPS.
 
 Pare os servidores:
 
@@ -314,6 +333,8 @@ Para validar rapidamente os arquivos principais:
 
 ```bash
 node --check server.js
+node --check public/service-worker.js
+node --check public/js/pwa.js
 sh -n serve-frontend.sh
 sh -n start-server.sh
 sh -n stop-server.sh
@@ -324,3 +345,4 @@ sh -n stop-server.sh
 - Nao ha leitura de metadados ID3; titulo e artista sao derivados do nome e diretorio do arquivo.
 - A capa do album ainda e placeholder.
 - A sincronizacao no servidor usa um unico arquivo `.player-state.json`, entao o estado e compartilhado entre dispositivos que apontam para a mesma API.
+- O PWA usa icone SVG; alguns navegadores antigos podem exigir PNG para instalacao.
