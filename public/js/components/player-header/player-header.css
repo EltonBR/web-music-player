@@ -74,7 +74,7 @@
 @media (min-width: 780px) {
   .player-header {
     min-height: 60px;
-    grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px 44px;
     gap: 12px;
     padding: 8px 24px;
     background: color-mix(in srgb, var(--panel) 92%, transparent);
