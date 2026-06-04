@@ -16,6 +16,7 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 - Menu de acoes da faixa atual com embaralhar playlist e excluir arquivo do disco com confirmacao.
 - Shuffle da playlist atual mantendo a faixa ativa.
 - Leitura de metadados ID3 para MP3, incluindo titulo, artista, album e capa embutida. Quando nao houver metadados, o app usa o comportamento anterior baseado no nome do arquivo e diretorio.
+- Cache servidor dos metadados ID3 em `.cache/`, com um arquivo JSON por faixa para acelerar bibliotecas grandes ou armazenadas em NAS.
 - Equalizador em Web Component proprio, com perfis predefinidos, bandas de frequencia, habilitar/desabilitar e controle independente de bass.
 - Tema claro e escuro.
 - Instalavel como PWA.
@@ -47,6 +48,7 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 |       |-- track-action-menu/
 |       `-- player-settings/
 |-- music/
+|-- .cache/
 |-- busybox
 |-- serve-frontend.sh
 |-- start-server.sh
@@ -58,11 +60,14 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 O backend fica em `server.js` e usa somente modulos nativos do Node:
 
 - `http`: servidor REST e streaming.
-- `fs`: leitura da biblioteca, streaming e persistencia de estado.
+- `fs`: leitura da biblioteca, streaming, cache de metadados e persistencia de estado.
 - `path`: normalizacao segura de caminhos.
+- `crypto`: geracao de chaves estaveis para os itens de cache.
 - `url`: parsing das rotas.
 
 Ele expoe a API, faz scan recursivo do diretorio de musicas e tambem consegue servir os arquivos estaticos de `public/`. No uso principal, porem, o frontend e servido pelo BusyBox local.
+
+Durante o scan, cada MP3 tem os metadados ID3 armazenados em `.cache/`. O servidor valida cada item pelo caminho absoluto, caminho relativo, tamanho e `mtimeMs` do arquivo. Se a faixa nao mudou, a API reutiliza o JSON em cache e evita reler as tags ID3 no NAS. Se a faixa mudar, for movida ou o formato do cache mudar, o item e recriado automaticamente.
 
 ### Frontend
 
@@ -242,6 +247,8 @@ Resposta:
 
 Faz scan recursivo do diretorio de musicas e retorna as faixas encontradas. Links simbolicos de diretorios sao seguidos e ciclos sao ignorados.
 
+Para arquivos MP3, os metadados ID3 sao lidos do cache em `.cache/` quando possivel. Na primeira leitura, ou quando o arquivo muda, o servidor relera as tags ID3 e atualizara o item de cache correspondente.
+
 Resposta:
 
 ```json
@@ -339,6 +346,8 @@ Mesmo usando cache local, a biblioteca e atualizada ao recarregar a pagina para 
 
 Quando a sincronizacao no servidor esta habilitada, o estado tambem e enviado para `PUT /api/player-state`, permitindo continuar em outro dispositivo que use a mesma API. O arquivo `.player-state.json` tambem guarda os favoritos sincronizados.
 
+O backend tambem mantem cache local de metadados em `.cache/`. Cada faixa gera um arquivo JSON proprio com a assinatura do arquivo e os metadados usados pela listagem. Esse cache pode ser apagado manualmente com o servidor parado; ele sera reconstruido no proximo `GET /api/tracks`.
+
 ## BusyBox Portatil
 
 O binario `./busybox` fica versionado na raiz do projeto e e usado por `serve-frontend.sh`.
@@ -361,6 +370,7 @@ O BusyBox local foi compilado com `httpd` habilitado. O script de frontend usa:
 Arquivos locais ignorados:
 
 - `music/`
+- `.cache/`;
 - logs e PIDs dos servidores;
 - `.player-state.json`;
 - fonte e tarball do BusyBox.
