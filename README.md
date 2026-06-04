@@ -6,17 +6,23 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 
 ## Recursos
 
-- Player mobile first com capa placeholder, titulo da faixa, progresso, controles anterior/proximo, play/pause e volume.
+- Player mobile first com capa, titulo, artista, album, progresso, contador da faixa atual, controles anterior/proximo, play/pause e volume.
 - Biblioteca em arvore de diretorios.
+- Suporte a links simbolicos de diretorios durante o scan da biblioteca, com protecao contra ciclos.
 - Selecao de um diretorio inteiro para fila de reproducao.
 - Selecao de uma faixa individual.
-- Lista de reproducao atual em painel separado.
+- Lista de reproducao atual em painel separado, com indicacao da faixa ativa.
+- Favoritos com botao por faixa, persistencia local, sincronizacao opcional no servidor e lista "Favoritos" no mesmo dropdown/arvore de "Todas as musicas".
+- Menu de acoes da faixa atual com embaralhar playlist e excluir arquivo do disco com confirmacao.
+- Shuffle da playlist atual mantendo a faixa ativa.
+- Leitura de metadados ID3 para MP3, incluindo titulo, artista, album e capa embutida. Quando nao houver metadados, o app usa o comportamento anterior baseado no nome do arquivo e diretorio.
+- Equalizador em Web Component proprio, com perfis predefinidos, bandas de frequencia, habilitar/desabilitar e controle independente de bass.
 - Tema claro e escuro.
 - Instalavel como PWA.
 - Cache offline do app shell por Service Worker.
 - Configuracoes para mudar a URL da API.
-- Persistencia local de biblioteca, fila atual, faixa atual e tempo.
-- Opcao de sincronizar estado no servidor para continuar ouvindo em outro dispositivo.
+- Persistencia local de biblioteca, fila atual, favoritos, equalizador, tema, faixa atual e tempo.
+- Opcao de sincronizar estado no servidor para continuar ouvindo em outro dispositivo, incluindo favoritos.
 - Streaming com suporte a `Range requests`, necessario para seek e reproducao eficiente no navegador.
 - Sem dependencias externas de frontend ou backend.
 
@@ -35,6 +41,10 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 |       |-- music-player/
 |       |-- music-library/
 |       |-- current-playlist/
+|       |-- player-controls/
+|       |-- player-header/
+|       |-- player-equalizer/
+|       |-- track-action-menu/
 |       `-- player-settings/
 |-- music/
 |-- busybox
@@ -59,6 +69,10 @@ Ele expoe a API, faz scan recursivo do diretorio de musicas e tambem consegue se
 O frontend fica em `public/` e usa Web Components nativos:
 
 - `music-player`: componente principal, orquestra audio, API, estado, tema e paineis.
+- `player-header`: botoes superiores para biblioteca, equalizador, tema, configuracoes e playlist atual.
+- `player-controls`: controles de reproducao, favorito, menu de acoes da faixa e volume.
+- `track-action-menu`: dropdown da faixa atual, com shuffle e exclusao do arquivo do disco com modal de confirmacao.
+- `player-equalizer`: painel de equalizador com presets, bandas de frequencia, bass e liga/desliga.
 - `music-library`: renderiza a arvore de diretorios e permite escolher diretorio ou faixa.
 - `current-playlist`: mostra a fila atual e permite trocar a faixa ativa.
 - `player-settings`: configura URL da API e sincronizacao de estado no servidor.
@@ -79,7 +93,7 @@ O projeto inclui os arquivos basicos de PWA:
 - `public/js/pwa.js`: registro do Service Worker no carregamento da pagina.
 - `public/assets/app-icon.svg`: icone usado pelo manifest.
 
-O Service Worker cacheia os arquivos estaticos do frontend. Requisicoes de streaming em `/api/tracks/:path`, requisicoes com header `Range` e estado remoto em `/api/player-state` passam direto pela rede para evitar problemas com reproducao, seek e sincronizacao.
+O Service Worker cacheia os arquivos estaticos do frontend. Requisicoes de streaming em `/api/tracks/:path`, capas em `/api/covers/:path`, requisicoes com header `Range` e estado remoto em `/api/player-state` passam direto pela rede para evitar problemas com reproducao, seek, capas e sincronizacao.
 
 Os caminhos do frontend sao relativos ao local onde `index.html` foi publicado. Isso permite servir o app em um subdiretorio, por exemplo `https://servidor/player/`, sem quebrar CSS, modulos JavaScript, manifest, icones ou Service Worker.
 
@@ -226,7 +240,7 @@ Resposta:
 
 ### `GET /api/tracks`
 
-Faz scan recursivo do diretorio de musicas e retorna as faixas encontradas.
+Faz scan recursivo do diretorio de musicas e retorna as faixas encontradas. Links simbolicos de diretorios sao seguidos e ciclos sao ignorados.
 
 Resposta:
 
@@ -238,9 +252,17 @@ Resposta:
       "id": "QWxidW0vMDEgRmFpeGEubXAz",
       "title": "01 Faixa",
       "artist": "Album",
+      "album": "",
       "fileName": "01 Faixa.mp3",
       "path": "Album/01 Faixa.mp3",
-      "url": "/api/tracks/Album%2F01%20Faixa.mp3"
+      "url": "/api/tracks/Album%2F01%20Faixa.mp3",
+      "coverUrl": "",
+      "metadata": {
+        "title": false,
+        "artist": false,
+        "album": false,
+        "cover": false
+      }
     }
   ]
 }
@@ -259,6 +281,23 @@ Formatos aceitos:
 - `.flac`
 - `.aac`
 
+### `DELETE /api/tracks/:path`
+
+Exclui a faixa do disco. A rota valida o caminho e a extensao antes de chamar `unlink`.
+
+Resposta:
+
+```json
+{
+  "ok": true,
+  "path": "Album/01 Faixa.mp3"
+}
+```
+
+### `GET /api/covers/:path`
+
+Retorna a capa embutida em uma tag ID3 de um arquivo MP3, quando existir.
+
 ### `GET /api/player-state`
 
 Retorna o estado salvo no servidor, quando a sincronizacao esta habilitada no frontend.
@@ -274,7 +313,10 @@ Formato esperado:
   "state": {
     "playlist": [],
     "currentTrackPath": "Album/01 Faixa.mp3",
-    "currentTime": 42.5
+    "currentTime": 42.5,
+    "favorites": {
+      "paths": ["Album/01 Faixa.mp3"]
+    }
   }
 }
 ```
@@ -285,6 +327,8 @@ O frontend salva dados no navegador para evitar perda de estado:
 
 - cache da biblioteca em `localStorage`;
 - fila de reproducao atual;
+- favoritos;
+- equalizador;
 - faixa selecionada;
 - tempo atual da faixa;
 - tema;
@@ -293,7 +337,7 @@ O frontend salva dados no navegador para evitar perda de estado:
 
 Mesmo usando cache local, a biblioteca e atualizada ao recarregar a pagina para detectar novas musicas. O estado do player tambem e salvo ao pausar, trocar de faixa, fechar a pagina e periodicamente a cada 20 segundos.
 
-Quando a sincronizacao no servidor esta habilitada, o estado tambem e enviado para `PUT /api/player-state`, permitindo continuar em outro dispositivo que use a mesma API.
+Quando a sincronizacao no servidor esta habilitada, o estado tambem e enviado para `PUT /api/player-state`, permitindo continuar em outro dispositivo que use a mesma API. O arquivo `.player-state.json` tambem guarda os favoritos sincronizados.
 
 ## BusyBox Portatil
 
@@ -325,7 +369,7 @@ O binario `busybox` nao esta no `.gitignore`, pois ele faz parte do runtime port
 
 ## Seguranca De Caminhos
 
-O backend usa resolucao segura de caminhos antes de ler arquivos. Isso evita que uma requisicao para `/api/tracks/...` ou para arquivos estaticos acesse conteudo fora dos diretorios permitidos.
+O backend usa resolucao segura de caminhos antes de ler, transmitir ou excluir arquivos. Isso evita que uma requisicao para `/api/tracks/...`, `/api/covers/...` ou para arquivos estaticos acesse conteudo fora dos diretorios permitidos.
 
 ## Desenvolvimento
 
@@ -344,7 +388,7 @@ sh -n stop-server.sh
 
 ## Limitacoes Atuais
 
-- Nao ha leitura de metadados ID3; titulo e artista sao derivados do nome e diretorio do arquivo.
-- A capa do album ainda e placeholder.
+- A leitura de metadados ID3 e focada em MP3. Para outros formatos, titulo e artista continuam sendo derivados do nome e diretorio do arquivo.
+- A capa do album usa placeholder quando o MP3 nao tem imagem embutida ou quando o formato nao fornece capa pela API.
 - A sincronizacao no servidor usa um unico arquivo `.player-state.json`, entao o estado e compartilhado entre dispositivos que apontam para a mesma API.
 - O PWA usa icone SVG; alguns navegadores antigos podem exigir PNG para instalacao.

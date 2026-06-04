@@ -123,13 +123,13 @@
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.tree-toggle svg {
+.tree-toggle .svg-icon {
   width: 18px;
   height: 18px;
   transition: transform .16s ease;
 }
 
-.tree-toggle[aria-expanded="true"] svg {
+.tree-toggle[aria-expanded="true"] .svg-icon {
   transform: rotate(90deg);
 }
 
@@ -148,7 +148,6 @@
   width: 20px;
   height: 20px;
   color: var(--accent);
-  fill: currentColor;
 }
 
 .tree-title {
@@ -177,8 +176,12 @@
   text-align: right;
 }
 
-svg {
+.svg-icon {
   width: 22px;
   height: 22px;
-  fill: currentColor;
+  display: block;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask: var(--icon-url) center / contain no-repeat;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
 }

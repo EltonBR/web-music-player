@@ -1,4 +1,4 @@
-const CACHE_VERSION = "web-music-player-v1";
+const CACHE_VERSION = "web-music-player-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,26 @@ const APP_SHELL = [
   "./manifest.webmanifest",
   "./assets/album-placeholder.svg",
   "./assets/app-icon.svg",
+  "./assets/icons/chevron-right.svg",
+  "./assets/icons/close.svg",
+  "./assets/icons/equalizer.svg",
+  "./assets/icons/folder.svg",
+  "./assets/icons/heart-filled.svg",
+  "./assets/icons/heart.svg",
+  "./assets/icons/menu.svg",
+  "./assets/icons/moon.svg",
+  "./assets/icons/more-vertical.svg",
+  "./assets/icons/music-note.svg",
+  "./assets/icons/next.svg",
+  "./assets/icons/pause.svg",
+  "./assets/icons/play.svg",
+  "./assets/icons/playlist.svg",
+  "./assets/icons/previous.svg",
+  "./assets/icons/settings.svg",
+  "./assets/icons/shuffle.svg",
+  "./assets/icons/sun.svg",
+  "./assets/icons/trash.svg",
+  "./assets/icons/volume.svg",
   "./js/pwa.js",
   "./js/components/music-player/music-player.js",
   "./js/components/music-player/music-player.css",
@@ -13,6 +33,14 @@ const APP_SHELL = [
   "./js/components/music-library/music-library.css",
   "./js/components/current-playlist/current-playlist.js",
   "./js/components/current-playlist/current-playlist.css",
+  "./js/components/player-equalizer/player-equalizer.js",
+  "./js/components/player-equalizer/player-equalizer.css",
+  "./js/components/player-controls/player-controls.js",
+  "./js/components/player-controls/player-controls.css",
+  "./js/components/player-header/player-header.js",
+  "./js/components/player-header/player-header.css",
+  "./js/components/track-action-menu/track-action-menu.js",
+  "./js/components/track-action-menu/track-action-menu.css",
   "./js/components/player-settings/player-settings.js",
   "./js/components/player-settings/player-settings.css"
 ];
@@ -45,7 +73,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (scopedPath.startsWith("/api/tracks/") || scopedPath === "/api/player-state") {
+  if (scopedPath.startsWith("/api/tracks/") || scopedPath.startsWith("/api/covers/") || scopedPath === "/api/player-state") {
     return;
   }
 

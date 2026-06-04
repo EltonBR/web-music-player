@@ -1,14 +1,26 @@
 import "../music-library/music-library.js";
 import "../current-playlist/current-playlist.js";
 import "../player-settings/player-settings.js";
+import "../player-equalizer/player-equalizer.js";
+import "../player-header/player-header.js";
+import "../player-controls/player-controls.js";
 
 const DEFAULT_API_BASE_URL = window.MUSIC_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:9192`;
 const stylesheetUrl = new URL("./music-player.css", import.meta.url).href;
 const albumPlaceholderUrl = new URL("../../../assets/album-placeholder.svg", import.meta.url).href;
+const EQUALIZER_FREQUENCIES = [60, 170, 350, 1000, 3500, 10000];
+const DEFAULT_EQUALIZER_STATE = {
+  enabled: false,
+  preset: "flat",
+  bass: 0,
+  bands: { "60": 0, "170": 0, "350": 0, "1000": 0, "3500": 0, "10000": 0 }
+};
 const STORAGE_KEYS = {
   library: "webMusicPlayer.library",
   playlist: "webMusicPlayer.currentPlaylist",
   playback: "webMusicPlayer.playbackState",
+  favorites: "webMusicPlayer.favorites",
+  equalizer: "webMusicPlayer.equalizer",
   theme: "webMusicPlayer.theme",
   settings: "webMusicPlayer.settings"
 };
@@ -17,27 +29,16 @@ const template = document.createElement("template");
 template.innerHTML = `
   <link rel="stylesheet" href="${stylesheetUrl}">
   <section class="player" aria-label="Player de musica">
-    <header class="player-header">
-      <button class="menu-button" data-library-button type="button" aria-label="Abrir biblioteca" title="Abrir biblioteca">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v2H4V7Zm0 4h16v2H4v-2Zm0 4h16v2H4v-2Z"/></svg>
-      </button>
-      <span class="header-spacer" aria-hidden="true"></span>
-      <button class="menu-button" data-theme-button type="button" aria-label="Alternar tema escuro" title="Alternar tema">
-        <svg data-theme-icon viewBox="0 0 24 24" aria-hidden="true"><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Zm0 2a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/></svg>
-      </button>
-      <button class="menu-button" data-settings-button type="button" aria-label="Abrir configuracoes" title="Configuracoes">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.4 3h3.2l.5 2.1c.5.2 1 .4 1.4.7l1.9-1.1 2.3 2.3-1.1 1.9c.3.5.5.9.7 1.4l2.1.5v3.2l-2.1.5c-.2.5-.4 1-.7 1.4l1.1 1.9-2.3 2.3-1.9-1.1c-.5.3-.9.5-1.4.7l-.5 2.1h-3.2l-.5-2.1c-.5-.2-1-.4-1.4-.7l-1.9 1.1-2.3-2.3 1.1-1.9c-.3-.5-.5-.9-.7-1.4L3 14v-3.2l2.1-.5c.2-.5.4-1 .7-1.4L4.7 7l2.3-2.3 1.9 1.1c.5-.3.9-.5 1.4-.7L10.4 3Zm1.6 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
-      </button>
-      <button class="menu-button" data-playlist-button type="button" aria-label="Abrir lista de reproducao atual" title="Lista de reproducao atual">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12v2H4V6Zm0 5h12v2H4v-2Zm0 5h8v2H4v-2Zm13.5-1.5 3.5 2.5-3.5 2.5v-5Z"/></svg>
-      </button>
-    </header>
+    <player-header data-player-header></player-header>
 
     <article class="surface">
       <img class="cover" src="${albumPlaceholderUrl}" alt="Capa do album">
 
       <div class="meta">
-        <p class="eyebrow">Tocando agora</p>
+        <p class="eyebrow">
+          <span>Tocando agora</span>
+          <span data-track-counter>0/0</span>
+        </p>
         <h1 data-title>Nenhuma faixa</h1>
         <p class="artist" data-artist>Adicione musicas ao diretorio configurado.</p>
         <p class="status" data-status>Carregando biblioteca...</p>
@@ -51,30 +52,13 @@ template.innerHTML = `
         </div>
       </div>
 
-      <div class="controls">
-        <button class="icon-button" data-prev type="button" aria-label="Faixa anterior" title="Faixa anterior">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6V5Zm3.5 7 10 7V5l-10 7Z"/></svg>
-        </button>
-        <button class="icon-button play-button" data-play type="button" aria-label="Reproduzir" title="Reproduzir">
-          <svg data-play-icon viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7L8 5Z"/></svg>
-        </button>
-        <button class="icon-button" data-next type="button" aria-label="Proxima faixa" title="Proxima faixa">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2V5ZM4.5 19l10-7-10-7v14Z"/></svg>
-        </button>
-      </div>
-
-      <div class="volume-wrap">
-        <div class="volume-row">
-          <svg class="volume-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.4 6.6 1.4 1.4A8 8 0 0 0 18 7l-1.4 1.4a6 6 0 0 1 0 7.2Z"/></svg>
-          <span data-volume-label>80%</span>
-        </div>
-        <input data-volume type="range" min="0" max="1" value="0.8" step="0.01" aria-label="Volume">
-      </div>
+      <player-controls data-player-controls></player-controls>
     </article>
 
     <button class="backdrop" data-backdrop type="button" aria-label="Fechar paineis"></button>
     <music-library data-library></music-library>
     <current-playlist data-playlist></current-playlist>
+    <player-equalizer data-equalizer></player-equalizer>
     <player-settings data-settings></player-settings>
     <audio data-audio preload="metadata"></audio>
   </section>
@@ -91,6 +75,12 @@ class MusicPlayer extends HTMLElement {
     this.selectedDirectoryPath = "";
     this.currentTrackId = "";
     this.currentIndex = 0;
+    this.favoritePaths = new Set();
+    this.equalizerState = { ...DEFAULT_EQUALIZER_STATE, bands: { ...DEFAULT_EQUALIZER_STATE.bands } };
+    this.audioContext = null;
+    this.audioSource = null;
+    this.bassFilter = null;
+    this.equalizerFilters = [];
     this.isSeeking = false;
     this.isPlaying = false;
     this.pendingSeekTime = 0;
@@ -100,34 +90,32 @@ class MusicPlayer extends HTMLElement {
     this.remoteStateLoaded = false;
 
     this.audio = this.shadowRoot.querySelector("[data-audio]");
+    this.coverEl = this.shadowRoot.querySelector(".cover");
     this.titleEl = this.shadowRoot.querySelector("[data-title]");
     this.artistEl = this.shadowRoot.querySelector("[data-artist]");
+    this.trackCounterEl = this.shadowRoot.querySelector("[data-track-counter]");
     this.statusEl = this.shadowRoot.querySelector("[data-status]");
     this.progressEl = this.shadowRoot.querySelector("[data-progress]");
     this.currentTimeEl = this.shadowRoot.querySelector("[data-current-time]");
     this.durationEl = this.shadowRoot.querySelector("[data-duration]");
-    this.volumeEl = this.shadowRoot.querySelector("[data-volume]");
-    this.volumeLabelEl = this.shadowRoot.querySelector("[data-volume-label]");
-    this.playButton = this.shadowRoot.querySelector("[data-play]");
-    this.playIcon = this.shadowRoot.querySelector("[data-play-icon]");
-    this.prevButton = this.shadowRoot.querySelector("[data-prev]");
-    this.nextButton = this.shadowRoot.querySelector("[data-next]");
-    this.libraryButton = this.shadowRoot.querySelector("[data-library-button]");
-    this.themeButton = this.shadowRoot.querySelector("[data-theme-button]");
-    this.themeIcon = this.shadowRoot.querySelector("[data-theme-icon]");
-    this.settingsButton = this.shadowRoot.querySelector("[data-settings-button]");
-    this.playlistButton = this.shadowRoot.querySelector("[data-playlist-button]");
+    this.controls = this.shadowRoot.querySelector("[data-player-controls]");
+    this.header = this.shadowRoot.querySelector("[data-player-header]");
     this.backdrop = this.shadowRoot.querySelector("[data-backdrop]");
     this.library = this.shadowRoot.querySelector("[data-library]");
     this.playlist = this.shadowRoot.querySelector("[data-playlist]");
+    this.equalizerPanel = this.shadowRoot.querySelector("[data-equalizer]");
     this.settingsPanel = this.shadowRoot.querySelector("[data-settings]");
   }
 
   connectedCallback() {
-    this.audio.volume = Number(this.volumeEl.value);
+    this.audio.crossOrigin = "anonymous";
+    this.audio.volume = this.controls.volume;
     this.applyStoredTheme();
     this.applyStoredSettings();
+    this.loadFavoritesFromStorage();
+    this.loadEqualizerFromStorage();
     this.bindEvents();
+    this.equalizerPanel.setEqualizerState(this.equalizerState);
     this.loadPersistedLibrary();
     this.loadTracks();
     this.stateSaveTimer = window.setInterval(() => this.savePlaybackState(), 20000);
@@ -142,13 +130,20 @@ class MusicPlayer extends HTMLElement {
   }
 
   bindEvents() {
-    this.playButton.addEventListener("click", () => this.togglePlayback());
-    this.prevButton.addEventListener("click", () => this.playPrevious());
-    this.nextButton.addEventListener("click", () => this.playNext());
-    this.libraryButton.addEventListener("click", () => this.setLibraryOpen(true));
-    this.themeButton.addEventListener("click", () => this.toggleTheme());
-    this.settingsButton.addEventListener("click", () => this.setSettingsOpen(true));
-    this.playlistButton.addEventListener("click", () => this.setPlaylistOpen(true));
+    this.controls.addEventListener("play-toggle", () => this.togglePlayback());
+    this.controls.addEventListener("previous-request", () => this.playPrevious());
+    this.controls.addEventListener("next-request", () => this.playNext());
+    this.controls.addEventListener("shuffle-request", () => this.shuffleCurrentPlaylist());
+    this.controls.addEventListener("delete-track-request", (event) => this.deleteTrackFromDisk(event.detail.track));
+    this.controls.addEventListener("favorite-toggle", () => this.toggleFavorite());
+    this.controls.addEventListener("volume-change", (event) => {
+      this.audio.volume = event.detail.volume;
+    });
+    this.header.addEventListener("library-request", () => this.setLibraryOpen(true));
+    this.header.addEventListener("equalizer-request", () => this.setEqualizerOpen(true));
+    this.header.addEventListener("theme-request", () => this.toggleTheme());
+    this.header.addEventListener("settings-request", () => this.setSettingsOpen(true));
+    this.header.addEventListener("playlist-request", () => this.setPlaylistOpen(true));
     this.backdrop.addEventListener("click", () => this.closePanels());
 
     this.library.addEventListener("close-request", () => this.setLibraryOpen(false));
@@ -161,6 +156,9 @@ class MusicPlayer extends HTMLElement {
       this.savePlaybackState();
       this.setPlaylistOpen(false);
     });
+
+    this.equalizerPanel.addEventListener("close-request", () => this.setEqualizerOpen(false));
+    this.equalizerPanel.addEventListener("equalizer-changed", (event) => this.saveEqualizerState(event.detail));
 
     this.settingsPanel.addEventListener("close-request", () => this.setSettingsOpen(false));
     this.settingsPanel.addEventListener("settings-saved", (event) => this.saveSettings(event.detail));
@@ -176,11 +174,6 @@ class MusicPlayer extends HTMLElement {
       this.savePlaybackState();
     });
 
-    this.volumeEl.addEventListener("input", () => {
-      this.audio.volume = Number(this.volumeEl.value);
-      this.volumeLabelEl.textContent = `${Math.round(this.audio.volume * 100)}%`;
-    });
-
     this.audio.addEventListener("loadedmetadata", () => this.updateDuration());
     this.audio.addEventListener("timeupdate", () => this.updateProgress());
     this.audio.addEventListener("play", () => this.setPlayingState(true));
@@ -191,6 +184,9 @@ class MusicPlayer extends HTMLElement {
     this.audio.addEventListener("ended", () => this.playNext());
     this.audio.addEventListener("error", () => {
       this.statusEl.textContent = "Nao foi possivel reproduzir esta faixa.";
+    });
+    this.coverEl.addEventListener("error", () => {
+      this.coverEl.src = albumPlaceholderUrl;
     });
 
     window.addEventListener("pagehide", () => this.savePlaybackState());
@@ -253,12 +249,13 @@ class MusicPlayer extends HTMLElement {
     this.currentTrackId = track.id;
     this.pendingSeekTime = Math.max(0, Number(startTime) || 0);
     this.audio.src = new URL(track.url, this.apiBaseUrl).toString();
-    this.titleEl.textContent = track.title;
-    this.artistEl.textContent = track.artist;
+    this.updateTrackMetadata(track);
     this.progressEl.value = String(this.pendingSeekTime);
     this.currentTimeEl.textContent = this.formatTime(this.pendingSeekTime);
     this.durationEl.textContent = "0:00";
     this.syncCurrentState();
+    this.updateTrackCounter();
+    this.updateFavoriteButton();
     this.savePlaybackState();
 
     if (shouldPlay) {
@@ -278,6 +275,7 @@ class MusicPlayer extends HTMLElement {
     }
 
     if (this.audio.paused) {
+      await this.resumeAudioContext();
       await this.audio.play();
       return;
     }
@@ -305,6 +303,88 @@ class MusicPlayer extends HTMLElement {
     this.savePlaybackState();
   }
 
+  shuffleCurrentPlaylist() {
+    if (this.queueTracks.length < 2) {
+      return;
+    }
+
+    const currentTrack = this.queueTracks[this.currentIndex] || null;
+    const shuffledTracks = [...this.queueTracks];
+
+    for (let index = shuffledTracks.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [shuffledTracks[index], shuffledTracks[swapIndex]] = [shuffledTracks[swapIndex], shuffledTracks[index]];
+    }
+
+    this.queueTracks = shuffledTracks;
+    this.currentIndex = currentTrack
+      ? Math.max(0, this.queueTracks.findIndex((track) => track.path === currentTrack.path))
+      : 0;
+    this.playlist.setTracks(this.queueTracks);
+    this.updateTrackCounter();
+    this.syncCurrentState();
+    this.saveCurrentPlaylist();
+    this.savePlaybackState();
+    this.statusEl.textContent = "Playlist atual embaralhada.";
+  }
+
+  async deleteTrackFromDisk(track) {
+    if (!track?.path) {
+      return;
+    }
+
+    const deletedPath = track.path;
+    const wasCurrentTrack = this.queueTracks[this.currentIndex]?.path === deletedPath;
+    const shouldResumePlayback = wasCurrentTrack && !this.audio.paused;
+    const previousIndex = this.currentIndex;
+
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/tracks/${encodeURIComponent(deletedPath)}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) {
+        throw new Error("Delete rejected");
+      }
+
+      if (wasCurrentTrack) {
+        this.audio.pause();
+        this.audio.removeAttribute("src");
+        this.audio.load();
+      }
+
+      this.allTracks = this.allTracks.filter((item) => item.path !== deletedPath);
+      this.queueTracks = this.queueTracks.filter((item) => item.path !== deletedPath);
+      this.favoritePaths.delete(deletedPath);
+
+      if (this.queueTracks.length > 0) {
+        if (wasCurrentTrack) {
+          this.loadTrack(Math.min(previousIndex, this.queueTracks.length - 1), shouldResumePlayback);
+        } else {
+          const currentIndex = this.queueTracks.findIndex((item) => item.id === this.currentTrackId);
+          this.currentIndex = currentIndex >= 0 ? currentIndex : Math.min(previousIndex, this.queueTracks.length - 1);
+        }
+      } else {
+        this.currentIndex = 0;
+        this.currentTrackId = "";
+        this.titleEl.textContent = "Nenhuma faixa";
+        this.artistEl.textContent = "Adicione musicas ao diretorio configurado.";
+        this.coverEl.src = albumPlaceholderUrl;
+        this.progressEl.value = "0";
+        this.currentTimeEl.textContent = "0:00";
+        this.durationEl.textContent = "0:00";
+      }
+
+      this.saveLibraryCache({ musicDir: "", tracks: this.allTracks });
+      this.saveCurrentPlaylist();
+      this.persistFavoritesState();
+      this.syncChildComponents();
+      this.setDisabledState();
+      this.statusEl.textContent = "Faixa excluida do disco.";
+    } catch (error) {
+      this.statusEl.textContent = "Nao foi possivel excluir a faixa do disco.";
+    }
+  }
+
   playDirectory({ path, tracks }) {
     if (!tracks.length) {
       return;
@@ -313,6 +393,7 @@ class MusicPlayer extends HTMLElement {
     this.selectedDirectoryPath = path;
     this.queueTracks = tracks;
     this.playlist.setTracks(this.queueTracks);
+    this.updateTrackCounter();
     this.saveCurrentPlaylist();
     this.setDisabledState();
     this.loadTrack(0);
@@ -323,6 +404,7 @@ class MusicPlayer extends HTMLElement {
     this.selectedDirectoryPath = null;
     this.queueTracks = [track];
     this.playlist.setTracks(this.queueTracks);
+    this.updateTrackCounter();
     this.saveCurrentPlaylist();
     this.setDisabledState();
     this.loadTrack(0);
@@ -355,22 +437,98 @@ class MusicPlayer extends HTMLElement {
 
   setPlayingState(isPlaying) {
     this.isPlaying = isPlaying;
-    this.playButton.setAttribute("aria-label", isPlaying ? "Pausar" : "Reproduzir");
-    this.playButton.setAttribute("title", isPlaying ? "Pausar" : "Reproduzir");
-    this.playIcon.innerHTML = isPlaying
-      ? '<path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"/>'
-      : '<path d="M8 5v14l11-7L8 5Z"/>';
+    this.controls.setPlaying(isPlaying);
     this.statusEl.textContent = isPlaying ? "Reproduzindo." : "Pausado.";
     this.syncCurrentState();
   }
 
   setDisabledState() {
     const isDisabled = this.queueTracks.length === 0;
-    this.playButton.disabled = isDisabled;
-    this.prevButton.disabled = isDisabled;
-    this.nextButton.disabled = isDisabled;
     this.progressEl.disabled = isDisabled;
-    this.playlistButton.disabled = isDisabled;
+    this.controls.setDisabledState(isDisabled);
+    this.updateFavoriteButton();
+    this.header.setActionDisabled("playlist", isDisabled);
+    this.syncTrackActions();
+  }
+
+  setupAudioGraph() {
+    if (this.audioContext) {
+      return;
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      this.statusEl.textContent = "Equalizador nao suportado neste navegador.";
+      return;
+    }
+
+    this.audioContext = new AudioContextClass();
+    this.audioSource = this.audioContext.createMediaElementSource(this.audio);
+    this.bassFilter = this.audioContext.createBiquadFilter();
+    this.bassFilter.type = "lowshelf";
+    this.bassFilter.frequency.value = 120;
+
+    this.equalizerFilters = EQUALIZER_FREQUENCIES.map((frequency) => {
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = "peaking";
+      filter.frequency.value = frequency;
+      filter.Q.value = 1;
+      return filter;
+    });
+
+    const nodes = [this.audioSource, this.bassFilter, ...this.equalizerFilters, this.audioContext.destination];
+    for (let index = 0; index < nodes.length - 1; index += 1) {
+      nodes[index].connect(nodes[index + 1]);
+    }
+
+    this.applyEqualizerToFilters();
+  }
+
+  async resumeAudioContext() {
+    if (!this.equalizerState.enabled) {
+      return;
+    }
+
+    this.setupAudioGraph();
+    if (this.audioContext?.state === "suspended") {
+      await this.audioContext.resume();
+    }
+  }
+
+  applyEqualizerToFilters() {
+    const isEnabled = Boolean(this.equalizerState.enabled);
+    if (this.bassFilter) {
+      this.bassFilter.gain.value = isEnabled ? Number(this.equalizerState.bass || 0) : 0;
+    }
+
+    this.equalizerFilters.forEach((filter, index) => {
+      const frequency = String(EQUALIZER_FREQUENCIES[index]);
+      filter.gain.value = isEnabled ? Number(this.equalizerState.bands?.[frequency] || 0) : 0;
+    });
+    this.header.setActionPressed("equalizer", isEnabled);
+  }
+
+  toggleFavorite() {
+    const track = this.queueTracks[this.currentIndex];
+    if (!track?.path) {
+      return;
+    }
+
+    if (this.favoritePaths.has(track.path)) {
+      this.favoritePaths.delete(track.path);
+    } else {
+      this.favoritePaths.add(track.path);
+    }
+
+    this.saveFavoritesState();
+    this.updateFavoriteButton();
+  }
+
+  updateFavoriteButton() {
+    const track = this.queueTracks[this.currentIndex];
+    const isFavorite = Boolean(track?.path && this.favoritePaths.has(track.path));
+
+    this.controls.setFavoriteState({ isFavorite, disabled: !track });
   }
 
   applyStoredSettings() {
@@ -428,11 +586,7 @@ class MusicPlayer extends HTMLElement {
   setTheme(theme, shouldPersist = true) {
     document.documentElement.dataset.theme = theme;
     const isDark = theme === "dark";
-    this.themeButton.setAttribute("aria-label", isDark ? "Alternar tema claro" : "Alternar tema escuro");
-    this.themeButton.setAttribute("title", isDark ? "Tema claro" : "Tema escuro");
-    this.themeIcon.innerHTML = isDark
-      ? '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>'
-      : '<path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Zm0 2a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/>';
+    this.header.setTheme(theme);
 
     if (shouldPersist) {
       this.writeStorage(STORAGE_KEYS.theme, theme);
@@ -489,11 +643,26 @@ class MusicPlayer extends HTMLElement {
     this.currentIndex = index;
     const track = this.queueTracks[this.currentIndex];
     this.currentTrackId = track.id;
-    this.titleEl.textContent = track.title;
-    this.artistEl.textContent = track.artist;
+    this.updateTrackMetadata(track);
     this.syncCurrentState();
+    this.updateTrackCounter();
     this.savePlaybackState();
     return true;
+  }
+
+  updateTrackCounter() {
+    const total = this.queueTracks.length;
+    const current = total > 0 ? this.currentIndex + 1 : 0;
+    this.trackCounterEl.textContent = `${current}/${total}`;
+  }
+
+  updateTrackMetadata(track) {
+    this.titleEl.textContent = track.title || track.fileName || "Nenhuma faixa";
+    const artist = track.artist || "Biblioteca local";
+    this.artistEl.textContent = track.album
+      ? `${artist} - ${track.album}`
+      : artist;
+    this.coverEl.src = track.coverUrl ? new URL(track.coverUrl, this.apiBaseUrl).toString() : albumPlaceholderUrl;
   }
 
   saveLibraryCache(payload) {
@@ -511,6 +680,63 @@ class MusicPlayer extends HTMLElement {
       savedAt: Date.now()
     });
     this.saveServerState();
+  }
+
+  loadFavoritesFromStorage() {
+    const favoritesState = this.readStorage(STORAGE_KEYS.favorites);
+    const paths = Array.isArray(favoritesState?.paths) ? favoritesState.paths : [];
+    this.favoritePaths = new Set(paths.filter(Boolean));
+  }
+
+  loadEqualizerFromStorage() {
+    this.equalizerState = this.normalizeEqualizerState(this.readStorage(STORAGE_KEYS.equalizer));
+    this.applyEqualizerToFilters();
+  }
+
+  saveEqualizerState(state) {
+    this.equalizerState = this.normalizeEqualizerState(state);
+    this.writeStorage(STORAGE_KEYS.equalizer, {
+      ...this.equalizerState,
+      savedAt: Date.now()
+    });
+    if (this.equalizerState.enabled) {
+      this.setupAudioGraph();
+      this.resumeAudioContext();
+    }
+    this.applyEqualizerToFilters();
+  }
+
+  normalizeEqualizerState(state = {}) {
+    const normalizedSource = state || {};
+    const bands = {};
+    EQUALIZER_FREQUENCIES.forEach((frequency) => {
+      const key = String(frequency);
+      bands[key] = this.clampEqualizerGain(normalizedSource.bands?.[key] ?? DEFAULT_EQUALIZER_STATE.bands[key]);
+    });
+
+    return {
+      enabled: Boolean(normalizedSource.enabled),
+      preset: normalizedSource.preset || "flat",
+      bass: this.clampEqualizerGain(normalizedSource.bass ?? 0),
+      bands
+    };
+  }
+
+  clampEqualizerGain(value) {
+    return Math.max(-12, Math.min(12, Number(value) || 0));
+  }
+
+  saveFavoritesState() {
+    this.persistFavoritesState();
+    this.saveServerState();
+  }
+
+  persistFavoritesState() {
+    this.writeStorage(STORAGE_KEYS.favorites, {
+      paths: [...this.favoritePaths],
+      savedAt: Date.now()
+    });
+    this.library.setFavoritePaths([...this.favoritePaths]);
   }
 
   savePlaybackState() {
@@ -543,6 +769,11 @@ class MusicPlayer extends HTMLElement {
 
       const payload = await response.json();
       const state = payload.state;
+      if (Array.isArray(state?.favorites?.paths)) {
+        this.favoritePaths = new Set(state.favorites.paths.filter(Boolean));
+        this.persistFavoritesState();
+      }
+
       if (!state?.playlist?.tracks?.length) {
         this.restorePlaylistFromStorage();
         this.remoteStateLoaded = true;
@@ -582,9 +813,6 @@ class MusicPlayer extends HTMLElement {
     }
 
     const track = this.queueTracks[this.currentIndex];
-    if (!track) {
-      return;
-    }
 
     const currentTime = this.pendingSeekTime > 0
       ? this.pendingSeekTime
@@ -598,15 +826,18 @@ class MusicPlayer extends HTMLElement {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           state: {
+            favorites: {
+              paths: [...this.favoritePaths]
+            },
             playlist: {
               tracks: this.queueTracks,
               selectedDirectoryPath: this.selectedDirectoryPath
             },
-            playback: {
+            playback: track ? {
               path: track.path,
               currentTime,
               queueIndex: this.currentIndex
-            }
+            } : null
           }
         })
       });
@@ -647,8 +878,10 @@ class MusicPlayer extends HTMLElement {
   }
 
   syncChildComponents() {
+    this.library.setFavoritePaths([...this.favoritePaths]);
     this.library.setTracks(this.allTracks);
     this.playlist.setTracks(this.queueTracks);
+    this.updateTrackCounter();
     this.syncCurrentState();
   }
 
@@ -660,31 +893,60 @@ class MusicPlayer extends HTMLElement {
     };
     this.library.setCurrentState(state);
     this.playlist.setCurrentState(state);
+    this.updateFavoriteButton();
+    this.syncTrackActions();
+  }
+
+  syncTrackActions() {
+    this.controls.setTrackActionsState({
+      currentTrack: this.queueTracks[this.currentIndex] || null,
+      canShuffle: this.queueTracks.length > 1,
+      disabled: this.queueTracks.length === 0
+    });
   }
 
   setLibraryOpen(isOpen) {
     if (isOpen) {
       this.playlist.removeAttribute("open");
+      this.equalizerPanel.removeAttribute("open");
       this.settingsPanel.removeAttribute("open");
-      this.playlistButton.setAttribute("aria-expanded", "false");
-      this.settingsButton.setAttribute("aria-expanded", "false");
+      this.header.setPanelState("playlist", false);
+      this.header.setPanelState("equalizer", false);
+      this.header.setPanelState("settings", false);
     }
 
     this.library.toggleAttribute("open", isOpen);
-    this.libraryButton.setAttribute("aria-expanded", String(isOpen));
+    this.header.setPanelState("library", isOpen);
     this.syncBackdrop();
   }
 
   setPlaylistOpen(isOpen) {
     if (isOpen) {
       this.library.removeAttribute("open");
+      this.equalizerPanel.removeAttribute("open");
       this.settingsPanel.removeAttribute("open");
-      this.libraryButton.setAttribute("aria-expanded", "false");
-      this.settingsButton.setAttribute("aria-expanded", "false");
+      this.header.setPanelState("library", false);
+      this.header.setPanelState("equalizer", false);
+      this.header.setPanelState("settings", false);
     }
 
     this.playlist.toggleAttribute("open", isOpen);
-    this.playlistButton.setAttribute("aria-expanded", String(isOpen));
+    this.header.setPanelState("playlist", isOpen);
+    this.syncBackdrop();
+  }
+
+  setEqualizerOpen(isOpen) {
+    if (isOpen) {
+      this.library.removeAttribute("open");
+      this.playlist.removeAttribute("open");
+      this.settingsPanel.removeAttribute("open");
+      this.header.setPanelState("library", false);
+      this.header.setPanelState("playlist", false);
+      this.header.setPanelState("settings", false);
+    }
+
+    this.equalizerPanel.toggleAttribute("open", isOpen);
+    this.header.setPanelState("equalizer", isOpen);
     this.syncBackdrop();
   }
 
@@ -692,28 +954,30 @@ class MusicPlayer extends HTMLElement {
     if (isOpen) {
       this.library.removeAttribute("open");
       this.playlist.removeAttribute("open");
-      this.libraryButton.setAttribute("aria-expanded", "false");
-      this.playlistButton.setAttribute("aria-expanded", "false");
+      this.equalizerPanel.removeAttribute("open");
+      this.header.setPanelState("library", false);
+      this.header.setPanelState("playlist", false);
+      this.header.setPanelState("equalizer", false);
     }
 
     this.settingsPanel.toggleAttribute("open", isOpen);
-    this.settingsButton.setAttribute("aria-expanded", String(isOpen));
+    this.header.setPanelState("settings", isOpen);
     this.syncBackdrop();
   }
 
   closePanels() {
     this.library.removeAttribute("open");
     this.playlist.removeAttribute("open");
+    this.equalizerPanel.removeAttribute("open");
     this.settingsPanel.removeAttribute("open");
-    this.libraryButton.setAttribute("aria-expanded", "false");
-    this.playlistButton.setAttribute("aria-expanded", "false");
-    this.settingsButton.setAttribute("aria-expanded", "false");
+    this.header.closePanels();
     this.syncBackdrop();
   }
 
   syncBackdrop() {
     const isOpen = this.library.hasAttribute("open")
       || this.playlist.hasAttribute("open")
+      || this.equalizerPanel.hasAttribute("open")
       || this.settingsPanel.hasAttribute("open");
     this.backdrop.dataset.open = String(isOpen);
   }

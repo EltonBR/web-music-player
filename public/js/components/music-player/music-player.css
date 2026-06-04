@@ -19,17 +19,6 @@
   background: var(--panel);
 }
 
-.player-header {
-  min-height: 52px;
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 38px 38px 38px;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-bottom: 1px solid rgba(22, 32, 36, .08);
-  background: var(--panel);
-}
-
 .surface {
   background: var(--panel);
   border: 0;
@@ -40,39 +29,6 @@
   gap: 10px;
   align-self: start;
   min-height: 0;
-}
-
-.menu-button {
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  display: inline-grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.menu-button:active {
-  transform: scale(.96);
-}
-
-.menu-button:disabled {
-  cursor: not-allowed;
-  opacity: .42;
-}
-
-.header-spacer {
-  min-width: 0;
-}
-
-@media (max-width: 360px) {
-  .player-header {
-    grid-template-columns: 34px minmax(0, 1fr) 34px 34px 34px;
-    gap: 6px;
-    padding-inline: 8px;
-  }
 }
 
 .cover {
@@ -99,6 +55,18 @@
   font-size: .7rem;
   font-weight: 700;
   text-transform: uppercase;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.eyebrow [data-track-counter] {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 h1 {
@@ -123,14 +91,12 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.progress-wrap,
-.volume-wrap {
+.progress-wrap {
   display: grid;
   gap: 4px;
 }
 
-.time-row,
-.volume-row {
+.time-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -144,64 +110,6 @@ input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
   margin: 0;
-}
-
-.controls {
-  display: grid;
-  grid-template-columns: 42px 56px 42px;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-
-.icon-button {
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  display: inline-grid;
-  place-items: center;
-  cursor: pointer;
-  transition: transform .16s ease, border-color .16s ease, background .16s ease;
-}
-
-.icon-button:hover {
-  border-color: var(--accent);
-}
-
-.icon-button:active {
-  transform: scale(.96);
-}
-
-.icon-button:disabled {
-  cursor: not-allowed;
-  opacity: .42;
-}
-
-.play-button {
-  width: 56px;
-  height: 56px;
-  border: 0;
-  background: var(--accent);
-  color: var(--panel);
-  box-shadow: 0 12px 24px rgba(25, 100, 126, .28);
-}
-
-.play-button:hover {
-  background: var(--accent-strong);
-}
-
-.volume-row {
-  justify-content: start;
-}
-
-.volume-icon {
-  width: 18px;
-  height: 18px;
-  color: var(--accent);
-  flex: 0 0 auto;
 }
 
 .backdrop {
@@ -220,34 +128,9 @@ input[type="range"] {
   pointer-events: auto;
 }
 
-svg {
-  width: 22px;
-  height: 22px;
-  fill: currentColor;
-}
-
-.play-button svg {
-  width: 24px;
-  height: 24px;
-}
-
 @media (min-width: 780px) {
   .player {
     background: transparent;
-  }
-
-  .player-header {
-    min-height: 60px;
-    grid-template-columns: 44px minmax(0, 1fr) 44px 44px 44px;
-    gap: 12px;
-    padding: 8px 24px;
-    background: color-mix(in srgb, var(--panel) 92%, transparent);
-    backdrop-filter: blur(12px);
-  }
-
-  .menu-button {
-    width: 44px;
-    height: 44px;
   }
 
   .surface {
@@ -261,8 +144,7 @@ svg {
     grid-template-areas:
       "cover meta"
       "cover progress"
-      "cover controls"
-      "cover volume";
+      "cover controls";
     border: 1px solid rgba(22, 32, 36, .08);
     border-radius: 10px;
     box-shadow: var(--shadow);
@@ -289,24 +171,12 @@ svg {
     max-width: 560px;
   }
 
-  .controls {
+  player-controls {
     grid-area: controls;
-    justify-content: start;
-  }
-
-  .volume-wrap {
-    grid-area: volume;
-    width: 100%;
-    max-width: 560px;
-    align-self: start;
   }
 }
 
 @media (min-width: 1180px) {
-  .player-header {
-    padding-inline: 32px;
-  }
-
   .surface {
     width: min(calc(100% - 64px), 1180px);
     grid-template-columns: minmax(300px, 420px) minmax(380px, 1fr);
@@ -340,15 +210,6 @@ svg {
 }
 
 @media (max-height: 610px) {
-  .player-header {
-    min-height: 46px;
-  }
-
-  .menu-button {
-    width: 34px;
-    height: 34px;
-  }
-
   .cover {
     max-width: min(100%, 210px);
   }

@@ -1,0 +1,122 @@
+:host {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 42px 42px 56px 42px 42px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.icon-button:hover {
+  border-color: var(--accent);
+}
+
+.icon-button:active {
+  transform: scale(.96);
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.play-button {
+  width: 56px;
+  height: 56px;
+  border: 0;
+  background: var(--accent);
+  color: var(--panel);
+  box-shadow: 0 12px 24px rgba(25, 100, 126, .28);
+}
+
+.play-button:hover {
+  background: var(--accent-strong);
+}
+
+.favorite-button[data-active="true"] {
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+
+[data-play-icon],
+[data-favorite-icon] {
+  display: contents;
+}
+
+.volume-wrap {
+  display: grid;
+  gap: 4px;
+}
+
+.volume-row {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: .76rem;
+  line-height: 1;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.volume-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.svg-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask: var(--icon-url) center / contain no-repeat;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+}
+
+.play-button .svg-icon {
+  width: 24px;
+  height: 24px;
+}
+
+@media (min-width: 780px) {
+  :host {
+    width: 100%;
+    max-width: 560px;
+    justify-self: start;
+  }
+
+  .controls {
+    justify-content: start;
+  }
+}

@@ -1,5 +1,7 @@
 const template = document.createElement("template");
 const stylesheetUrl = new URL("./current-playlist.css", import.meta.url).href;
+const iconUrl = (name) => new URL(`../../../assets/icons/${name}.svg`, import.meta.url).href;
+const icon = (name) => `<span class="svg-icon" style="--icon-url: url('${iconUrl(name)}')" aria-hidden="true"></span>`;
 
 template.innerHTML = `
   <link rel="stylesheet" href="${stylesheetUrl}">
@@ -8,7 +10,7 @@ template.innerHTML = `
       <strong>Lista atual</strong>
       <span data-count>0 faixas</span>
       <button class="close-button" data-close type="button" aria-label="Fechar lista de reproducao" title="Fechar lista de reproducao">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/></svg>
+        ${icon("close")}
       </button>
     </div>
     <ul class="queue-list" data-list></ul>
@@ -78,7 +80,7 @@ class CurrentPlaylist extends HTMLElement {
       button.innerHTML = `
         <span>
           <span class="queue-item-title">${this.escapeHtml(track.title)}</span>
-          <span class="queue-item-subtitle">${this.escapeHtml(track.artist)}</span>
+          <span class="queue-item-subtitle">${this.escapeHtml(this.getTrackSubtitle(track))}</span>
         </span>
         <span class="track-state" aria-hidden="true"></span>
       `;
@@ -112,6 +114,14 @@ class CurrentPlaylist extends HTMLElement {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  getTrackSubtitle(track) {
+    if (track.metadata?.artist || track.metadata?.album) {
+      return [track.artist, track.album].filter(Boolean).join(" - ");
+    }
+
+    return track.artist;
   }
 }
 

@@ -1,5 +1,7 @@
 const template = document.createElement("template");
 const stylesheetUrl = new URL("./music-library.css", import.meta.url).href;
+const iconUrl = (name) => new URL(`../../../assets/icons/${name}.svg`, import.meta.url).href;
+const icon = (name, className = "") => `<span class="svg-icon ${className}" style="--icon-url: url('${iconUrl(name)}')" aria-hidden="true"></span>`;
 
 template.innerHTML = `
   <link rel="stylesheet" href="${stylesheetUrl}">
@@ -8,7 +10,7 @@ template.innerHTML = `
       <strong>Biblioteca</strong>
       <span data-count>0 faixas</span>
       <button class="close-button" data-close type="button" aria-label="Fechar biblioteca" title="Fechar biblioteca">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z"/></svg>
+        ${icon("close")}
       </button>
     </div>
     <ul class="library-tree" data-library-tree></ul>
@@ -27,7 +29,8 @@ class MusicLibrary extends HTMLElement {
 
     this.tracks = [];
     this.treeRoot = null;
-    this.expandedPaths = new Set([""]);
+    this.favoritePaths = new Set();
+    this.expandedPaths = new Set(["", "__favorites__"]);
     this.selectedDirectoryPath = "";
     this.currentTrackId = "";
     this.isPlaying = false;
@@ -52,6 +55,11 @@ class MusicLibrary extends HTMLElement {
   setTracks(tracks) {
     this.tracks = tracks || [];
     this.treeRoot = this.buildTree(this.tracks);
+    this.render();
+  }
+
+  setFavoritePaths(paths) {
+    this.favoritePaths = new Set((paths || []).filter(Boolean));
     this.render();
   }
 
@@ -113,6 +121,70 @@ class MusicLibrary extends HTMLElement {
     this.highlightSelection();
   }
 
+  renderFavoritesNode() {
+    const item = document.createElement("li");
+    item.className = "tree-node";
+
+    const tracks = this.tracks
+      .filter((track) => this.favoritePaths.has(track.path))
+      .sort((a, b) => a.path.localeCompare(b.path, "pt-BR", { sensitivity: "base" }));
+    const isExpanded = this.expandedPaths.has("__favorites__");
+    const row = document.createElement("div");
+    row.className = "tree-row";
+    row.dataset.dirPath = "__favorites__";
+
+    const toggle = document.createElement("button");
+    toggle.className = "tree-toggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", isExpanded ? "Recolher favoritos" : "Expandir favoritos");
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.innerHTML = icon("chevron-right");
+    toggle.addEventListener("click", () => {
+      if (this.expandedPaths.has("__favorites__")) {
+        this.expandedPaths.delete("__favorites__");
+      } else {
+        this.expandedPaths.add("__favorites__");
+      }
+      this.render();
+    });
+
+    const action = document.createElement("button");
+    action.className = "tree-action";
+    action.type = "button";
+    action.disabled = tracks.length === 0;
+    action.setAttribute("aria-label", "Tocar favoritos");
+    action.innerHTML = `
+      ${icon("heart-filled", "tree-icon")}
+      <span>
+        <span class="tree-title">Favoritos</span>
+        <span class="tree-subtitle">${tracks.length} ${tracks.length === 1 ? "faixa" : "faixas"}</span>
+      </span>
+    `;
+    action.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("directory-selected", {
+        detail: { path: "__favorites__", tracks },
+        bubbles: true,
+        composed: true
+      }));
+    });
+
+    const state = document.createElement("span");
+    state.className = "track-state";
+    state.setAttribute("aria-hidden", "true");
+
+    row.append(toggle, action, state);
+    item.append(row);
+
+    if (isExpanded) {
+      const children = document.createElement("ul");
+      children.className = "tree-children";
+      tracks.forEach((track) => children.append(this.renderTrackNode(track, "__favorites__")));
+      item.append(children);
+    }
+
+    return item;
+  }
+
   renderDirectoryNode(node, isRoot = false) {
     const item = document.createElement("li");
     item.className = "tree-node";
@@ -128,7 +200,7 @@ class MusicLibrary extends HTMLElement {
     toggle.type = "button";
     toggle.setAttribute("aria-label", isExpanded ? "Recolher diretorio" : "Expandir diretorio");
     toggle.setAttribute("aria-expanded", String(isExpanded));
-    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 8 7-8 7V5Z"/></svg>';
+    toggle.innerHTML = icon("chevron-right");
     toggle.addEventListener("click", () => {
       if (this.expandedPaths.has(node.path)) {
         this.expandedPaths.delete(node.path);
@@ -144,7 +216,7 @@ class MusicLibrary extends HTMLElement {
     action.disabled = tracks.length === 0;
     action.setAttribute("aria-label", `Tocar diretorio ${node.name}`);
     action.innerHTML = `
-      <svg class="tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v7A2.5 2.5 0 0 1 18.5 18h-13A2.5 2.5 0 0 1 3 15.5v-9Z"/></svg>
+      ${icon("folder", "tree-icon")}
       <span>
         <span class="tree-title">${this.escapeHtml(node.name)}</span>
         <span class="tree-subtitle">${tracks.length} ${tracks.length === 1 ? "faixa" : "faixas"}</span>
@@ -174,6 +246,9 @@ class MusicLibrary extends HTMLElement {
       const directTracks = [...node.tracks]
         .sort((a, b) => a.title.localeCompare(b.title, "pt-BR", { sensitivity: "base" }));
 
+      if (isRoot) {
+        children.append(this.renderFavoritesNode());
+      }
       directories.forEach((directory) => children.append(this.renderDirectoryNode(directory)));
       directTracks.forEach((track) => children.append(this.renderTrackNode(track, node.path)));
 
@@ -203,10 +278,10 @@ class MusicLibrary extends HTMLElement {
     action.type = "button";
     action.setAttribute("aria-label", `Tocar faixa ${track.title}`);
     action.innerHTML = `
-      <svg class="tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4v12.5A3.5 3.5 0 1 1 8 13.34V6h10V4h-8Z"/></svg>
+      ${icon("music-note", "tree-icon")}
       <span>
         <span class="tree-title">${this.escapeHtml(track.title)}</span>
-        <span class="tree-subtitle">${this.escapeHtml(track.fileName)}</span>
+        <span class="tree-subtitle">${this.escapeHtml(this.getTrackSubtitle(track))}</span>
       </span>
     `;
     action.addEventListener("click", () => {
@@ -252,6 +327,14 @@ class MusicLibrary extends HTMLElement {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  getTrackSubtitle(track) {
+    if (track.metadata?.artist || track.metadata?.album) {
+      return [track.artist, track.album].filter(Boolean).join(" - ");
+    }
+
+    return track.fileName;
   }
 }
 

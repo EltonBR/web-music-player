@@ -6,7 +6,7 @@
   box-sizing: border-box;
 }
 
-.settings {
+.equalizer {
   position: fixed;
   inset: 0 0 0 auto;
   z-index: 40;
@@ -28,7 +28,7 @@
   transition: transform .2s ease;
 }
 
-.settings[data-open="true"] {
+.equalizer[data-open="true"] {
   transform: translateX(0);
 }
 
@@ -65,7 +65,8 @@
   flex: 0 0 auto;
 }
 
-.form {
+.form,
+.bands {
   display: grid;
   align-content: start;
   gap: 16px;
@@ -85,7 +86,7 @@ label,
   font-weight: 700;
 }
 
-input[type="url"] {
+select {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
@@ -165,8 +166,50 @@ input[type="checkbox"]:checked ~ .switch::after {
   background: var(--accent);
 }
 
+.range-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.range-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.range-meta span:last-child {
+  color: var(--muted);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bass-row {
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.svg-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  flex: 0 0 auto;
+  background: currentColor;
+  mask: var(--icon-url) center / contain no-repeat;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+}
+
 @media (max-width: 360px) {
-  .settings {
+  .equalizer {
     width: 100vw;
     padding-inline: 12px;
   }
@@ -178,31 +221,4 @@ input[type="checkbox"]:checked ~ .switch::after {
   .switch-control {
     justify-self: start;
   }
-}
-
-.actions {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-}
-
-.save-button {
-  width: 100%;
-  min-height: 42px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--panel);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.svg-icon {
-  width: 22px;
-  height: 22px;
-  display: block;
-  flex: 0 0 auto;
-  background: currentColor;
-  mask: var(--icon-url) center / contain no-repeat;
-  -webkit-mask: var(--icon-url) center / contain no-repeat;
 }
