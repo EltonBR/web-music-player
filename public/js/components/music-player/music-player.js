@@ -9,6 +9,8 @@ const DEFAULT_API_BASE_URL = window.MUSIC_API_BASE_URL || `${window.location.pro
 const stylesheetUrl = new URL("./music-player.css", import.meta.url).href;
 const albumPlaceholderUrl = new URL("../../../assets/album-placeholder.svg", import.meta.url).href;
 const EQUALIZER_FREQUENCIES = [60, 170, 350, 1000, 3500, 10000];
+const SERVER_STATE_SAVE_DELAY = 750;
+const KEEPALIVE_BODY_LIMIT = 60 * 1024;
 const DEFAULT_EQUALIZER_STATE = {
   enabled: false,
   preset: "flat",
@@ -85,6 +87,9 @@ class MusicPlayer extends HTMLElement {
     this.isPlaying = false;
     this.pendingSeekTime = 0;
     this.stateSaveTimer = null;
+    this.serverStateSaveTimer = null;
+    this.pendingServerStatePayload = null;
+    this.serverStateSaveInFlight = false;
     this.apiBaseUrl = DEFAULT_API_BASE_URL;
     this.syncToServer = false;
     this.remoteStateLoaded = false;
@@ -126,6 +131,10 @@ class MusicPlayer extends HTMLElement {
     if (this.stateSaveTimer) {
       window.clearInterval(this.stateSaveTimer);
       this.stateSaveTimer = null;
+    }
+    if (this.serverStateSaveTimer) {
+      window.clearTimeout(this.serverStateSaveTimer);
+      this.serverStateSaveTimer = null;
     }
   }
 
@@ -189,11 +198,11 @@ class MusicPlayer extends HTMLElement {
       this.coverEl.src = albumPlaceholderUrl;
     });
 
-    window.addEventListener("pagehide", () => this.savePlaybackState());
-    window.addEventListener("beforeunload", () => this.savePlaybackState());
+    window.addEventListener("pagehide", () => this.savePlaybackState({ immediate: true, keepalive: true }));
+    window.addEventListener("beforeunload", () => this.savePlaybackState({ immediate: true, keepalive: true }));
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
-        this.savePlaybackState();
+        this.savePlaybackState({ immediate: true, keepalive: true });
       }
     });
   }
@@ -739,7 +748,7 @@ class MusicPlayer extends HTMLElement {
     this.library.setFavoritePaths([...this.favoritePaths]);
   }
 
-  savePlaybackState() {
+  savePlaybackState(options = {}) {
     const track = this.queueTracks[this.currentIndex];
     if (!track) {
       return;
@@ -757,7 +766,7 @@ class MusicPlayer extends HTMLElement {
       selectedDirectoryPath: this.selectedDirectoryPath,
       savedAt: Date.now()
     });
-    this.saveServerState();
+    this.saveServerState(options);
   }
 
   async restoreServerState() {
@@ -807,45 +816,97 @@ class MusicPlayer extends HTMLElement {
     }
   }
 
-  async saveServerState() {
+  saveServerState(options = {}) {
     if (!this.syncToServer) {
       return;
     }
 
+    this.pendingServerStatePayload = this.createServerStatePayload();
+
+    if (this.serverStateSaveTimer) {
+      window.clearTimeout(this.serverStateSaveTimer);
+      this.serverStateSaveTimer = null;
+    }
+
+    if (options.immediate) {
+      this.flushServerState(options);
+      return;
+    }
+
+    this.serverStateSaveTimer = window.setTimeout(() => {
+      this.serverStateSaveTimer = null;
+      this.flushServerState();
+    }, SERVER_STATE_SAVE_DELAY);
+  }
+
+  createServerStatePayload() {
     const track = this.queueTracks[this.currentIndex];
 
     const currentTime = this.pendingSeekTime > 0
       ? this.pendingSeekTime
       : Number.isFinite(this.audio.currentTime)
-        ? this.audio.currentTime
-        : Number(this.progressEl.value || 0);
+      ? this.audio.currentTime
+      : Number(this.progressEl.value || 0);
+
+    return {
+      state: {
+        favorites: {
+          paths: [...this.favoritePaths]
+        },
+        playlist: {
+          tracks: this.queueTracks,
+          selectedDirectoryPath: this.selectedDirectoryPath
+        },
+        playback: track ? {
+          path: track.path,
+          currentTime,
+          queueIndex: this.currentIndex
+        } : null
+      }
+    };
+  }
+
+  async flushServerState(options = {}) {
+    if (!this.syncToServer || this.serverStateSaveInFlight) {
+      return;
+    }
+
+    if (this.serverStateSaveTimer) {
+      window.clearTimeout(this.serverStateSaveTimer);
+      this.serverStateSaveTimer = null;
+    }
+
+    const payload = this.pendingServerStatePayload;
+    if (!payload) {
+      return;
+    }
+
+    this.pendingServerStatePayload = null;
+    this.serverStateSaveInFlight = true;
+    const body = JSON.stringify(payload);
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/api/player-state`, {
+      const requestOptions = {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          state: {
-            favorites: {
-              paths: [...this.favoritePaths]
-            },
-            playlist: {
-              tracks: this.queueTracks,
-              selectedDirectoryPath: this.selectedDirectoryPath
-            },
-            playback: track ? {
-              path: track.path,
-              currentTime,
-              queueIndex: this.currentIndex
-            } : null
-          }
-        })
-      });
+        body
+      };
+
+      if (options.keepalive && body.length <= KEEPALIVE_BODY_LIMIT) {
+        requestOptions.keepalive = true;
+      }
+
+      const response = await fetch(`${this.apiBaseUrl}/api/player-state`, requestOptions);
       if (!response.ok) {
         throw new Error("Server rejected player state");
       }
     } catch (error) {
       this.statusEl.textContent = "Nao foi possivel sincronizar com o servidor.";
+    } finally {
+      this.serverStateSaveInFlight = false;
+      if (this.pendingServerStatePayload) {
+        this.flushServerState();
+      }
     }
   }
 

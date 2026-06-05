@@ -60,7 +60,7 @@ start_detached() {
 if is_running "$API_PID_FILE"; then
   printf 'API ja esta rodando em pid %s\n' "$(cat "$API_PID_FILE")"
 else
-  start_detached "$API_LOG_FILE" env PORT="$API_PORT" node "$ROOT_DIR/server.js" > "$API_PID_FILE"
+  start_detached "$API_LOG_FILE" env PORT="$API_PORT" node "$ROOT_DIR/server/index.js" > "$API_PID_FILE"
   ensure_started "API" "$API_PID_FILE" "$API_LOG_FILE" "$API_PORT"
   printf 'API iniciada em http://localhost:%s pid %s\n' "$API_PORT" "$(cat "$API_PID_FILE")"
 fi

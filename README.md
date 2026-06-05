@@ -32,6 +32,15 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 ```text
 .
 |-- server.js
+|-- server/
+|   |-- index.js
+|   |-- config.js
+|   |-- http-utils.js
+|   |-- id3.js
+|   |-- metadata-cache.js
+|   |-- player-state.js
+|   |-- static-files.js
+|   `-- tracks.js
 |-- public/
 |   |-- index.html
 |   |-- manifest.webmanifest
@@ -57,7 +66,7 @@ O projeto foi pensado para rodar em rede local: o frontend e servido por um Busy
 
 ### Backend
 
-O backend fica em `server.js` e usa somente modulos nativos do Node:
+O backend fica em `server/` e usa somente modulos nativos do Node. O arquivo `server.js` permanece como wrapper de compatibilidade para `node server.js`, enquanto `start-server.sh` inicia diretamente `server/index.js`.
 
 - `http`: servidor REST e streaming.
 - `fs`: leitura da biblioteca, streaming, cache de metadados e persistencia de estado.
@@ -66,6 +75,17 @@ O backend fica em `server.js` e usa somente modulos nativos do Node:
 - `url`: parsing das rotas.
 
 Ele expoe a API, faz scan recursivo do diretorio de musicas e tambem consegue servir os arquivos estaticos de `public/`. No uso principal, porem, o frontend e servido pelo BusyBox local.
+
+Responsabilidades principais:
+
+- `server/index.js`: cria o servidor HTTP e roteia as requisicoes.
+- `server/config.js`: centraliza portas, diretorios, tipos de audio e tipos estaticos.
+- `server/http-utils.js`: resposta JSON, leitura de corpo, 404 e resolucao segura de caminhos.
+- `server/tracks.js`: lista biblioteca, transmite audio, retorna capas e exclui faixas.
+- `server/id3.js`: faz parsing ID3v1/ID3v2 de MP3.
+- `server/metadata-cache.js`: le e grava o cache de metadados em `.cache/`.
+- `server/player-state.js`: le e persiste `.player-state.json`.
+- `server/static-files.js`: serve arquivos de `public/` quando a API e usada tambem como servidor estatico.
 
 Durante o scan, cada MP3 tem os metadados ID3 armazenados em `.cache/`. O servidor valida cada item pelo caminho absoluto, caminho relativo, tamanho e `mtimeMs` do arquivo. Se a faixa nao mudou, a API reutiliza o JSON em cache e evita reler as tags ID3 no NAS. Se a faixa mudar, for movida ou o formato do cache mudar, o item e recriado automaticamente.
 
@@ -170,7 +190,7 @@ npm stop
 npm start
 ```
 
-Inicia API e frontend em background. Cria arquivos locais de PID e log:
+Inicia API e frontend em background. A API e iniciada pelo entrypoint modular `server/index.js`. Cria arquivos locais de PID e log:
 
 - `.api-server.pid`
 - `.frontend-server.pid`
@@ -187,7 +207,7 @@ Para API e frontend usando os arquivos de PID e, como fallback, procura processo
 npm run api
 ```
 
-Inicia somente a API Node.
+Inicia somente a API Node pelo wrapper `server.js`, que carrega o servidor modular.
 
 ```bash
 npm run frontend
@@ -389,6 +409,7 @@ Para validar rapidamente os arquivos principais:
 
 ```bash
 node --check server.js
+for file in server/*.js; do node --check "$file" || exit 1; done
 node --check public/service-worker.js
 node --check public/js/pwa.js
 sh -n serve-frontend.sh
