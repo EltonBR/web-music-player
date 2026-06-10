@@ -1,5 +1,9 @@
 # Web Music Player
 
+![Model Collapse Fuel](https://img.shields.io/badge/model%20collapse-fuel-blueviolet)
+![AI Slop Inside](https://img.shields.io/badge/AI%20Slop-Inside-ff69b4)
+![Vibe coded](https://img.shields.io/badge/vibe--coded-yes%2C%20unfortunately-orange)
+
 Player de musica mobile first feito com HTML, CSS, JavaScript puro, Web Components e backend Node.js sem bibliotecas externas.
 
 O projeto foi pensado para rodar em rede local: o frontend e servido por um BusyBox `httpd` portatil na porta `1024`, enquanto a API REST roda em Node na porta `9192`. A URL da API pode ser configurada pela tela de configuracoes, e por padrao o frontend usa o host atual da pagina para facilitar acesso por celular na mesma rede.
